@@ -47,9 +47,9 @@ class ConcreteSupabaseClient(SupabaseClient):
     async def update_song_requests_as_added(
         self, song_requests: list[SongRequest]
     ) -> Result[None, Exception]:
-        try:
-            # Update each song request individually with its specific status
-            for song_request in song_requests:
+        # Update each song request individually with its specific status
+        for song_request in song_requests:
+            try:
                 # Update the database with the status
                 (
                     self.client.table("_spotify_to_supabase_test")
@@ -63,29 +63,33 @@ class ConcreteSupabaseClient(SupabaseClient):
                     .eq("id", song_request.id)
                     .execute()
                 )
-            return Success(None)
-        except Exception as e:
-            return Result.from_failure(e)
+            except Exception as e:
+                return Result.from_failure(e)
+        return Success(None)
 
 
 class ConcreteSpotifyClient(SpotifyClient):
     """A concrete implementation of the Spotify client using user authorization."""
 
     def __init__(self) -> None:
-        settings = get_settings()
-        if not settings.spotify_refresh_token:
+        self.settings = get_settings()
+        if not self.settings.spotify_refresh_token:
             raise ValueError(
                 "Spotify refresh token not found in environment. "
                 "Please complete the authorization flow via the /login endpoint."
             )
 
-        encryption_service = EncryptionService(key=SecretStr(settings.encryption_key))
-        decrypted_token = encryption_service.decrypt(settings.spotify_refresh_token)
+        encryption_service = EncryptionService(
+            key=SecretStr(self.settings.encryption_key)
+        )
+        decrypted_token = encryption_service.decrypt(
+            self.settings.spotify_refresh_token
+        )
 
         auth_manager = SpotifyOAuth(
-            client_id=settings.spotipy_client_id,
-            client_secret=settings.spotipy_client_secret,
-            redirect_uri=settings.spotipy_redirect_uri,
+            client_id=self.settings.spotipy_client_id,
+            client_secret=self.settings.spotipy_client_secret,
+            redirect_uri=self.settings.spotipy_redirect_uri,
             scope="playlist-modify-public playlist-modify-private",
             cache_path=None,  # Do not use a cache file
         )
@@ -114,7 +118,6 @@ class ConcreteSpotifyClient(SpotifyClient):
             Result containing list of tuples (song_request, status) for each song
         """
         try:
-            settings = get_settings()
             results: list[tuple[SongRequest, SongAdditionStatus]] = []
 
             # Process each song individually
@@ -127,7 +130,7 @@ class ConcreteSpotifyClient(SpotifyClient):
                         # Song found, add to playlist and mark as success
                         track_uri = search_results["tracks"]["items"][0]["uri"]
                         self.client.playlist_add_items(
-                            settings.spotify_playlist_id, [track_uri]
+                            self.settings.spotify_playlist_id, [track_uri]
                         )
                         # TODO check return value if it is really a success!
                         # Update the song request with the status
