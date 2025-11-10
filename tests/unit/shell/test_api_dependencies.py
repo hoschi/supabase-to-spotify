@@ -18,6 +18,7 @@ def mock_settings(monkeypatch):
     """Mock the settings for all tests in this module."""
     monkeypatch.setenv("SUPABASE_URL", "http://test.com")
     monkeypatch.setenv("SUPABASE_KEY", "test_key")
+    monkeypatch.setenv("SUPABASE_TABLE", "_spotify_to_supabase_test")
     monkeypatch.setenv("SPOTIPY_CLIENT_ID", "test_id")
     monkeypatch.setenv("SPOTIPY_CLIENT_SECRET", "test_secret")
     monkeypatch.setenv("SPOTIPY_REDIRECT_URI", "http://localhost/callback")

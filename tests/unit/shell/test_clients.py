@@ -7,6 +7,27 @@ from src.core.models import Song, SongAdditionStatus, SongRequest
 from src.shell.clients import ConcreteSpotifyClient, ConcreteSupabaseClient
 
 
+@pytest.fixture(autouse=True)
+def mock_settings_for_clients(monkeypatch):
+    """Mock settings for client tests."""
+    monkeypatch.setenv("SUPABASE_URL", "http://test.com")
+    monkeypatch.setenv("SUPABASE_KEY", "test_key")
+    monkeypatch.setenv("SUPABASE_TABLE", "_spotify_to_supabase_test")
+    monkeypatch.setenv("SPOTIPY_CLIENT_ID", "test_id")
+    monkeypatch.setenv("SPOTIPY_CLIENT_SECRET", "test_secret")
+    monkeypatch.setenv("SPOTIPY_REDIRECT_URI", "http://localhost/callback")
+    monkeypatch.setenv("SPOTIFY_PLAYLIST_ID", "playlist_id")
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    monkeypatch.setenv("ENCRYPTION_KEY", key)
+    monkeypatch.setenv("SPOTIFY_REFRESH_TOKEN", "encrypted_token")
+
+    from src.core import config
+
+    config.get_settings.cache_clear()
+
+
 @pytest.fixture
 def mock_supabase_client() -> MagicMock:
     """Provides a mock Supabase client."""
@@ -16,10 +37,7 @@ def mock_supabase_client() -> MagicMock:
 @pytest.fixture
 def concrete_supabase_client(mock_supabase_client: MagicMock) -> ConcreteSupabaseClient:
     """Provides a ConcreteSupabaseClient instance with mocked dependencies."""
-    with (
-        patch("src.shell.clients.create_client", return_value=mock_supabase_client),
-        patch("src.shell.clients.get_settings"),
-    ):
+    with patch("src.shell.clients.create_client", return_value=mock_supabase_client):
         return ConcreteSupabaseClient()
 
 
@@ -381,23 +399,10 @@ def mock_spotify_client() -> MagicMock:
 def concrete_spotify_client(mock_spotify_client: MagicMock) -> ConcreteSpotifyClient:
     """Provides a ConcreteSpotifyClient instance with mocked dependencies."""
     with (
-        patch("src.shell.clients.get_settings") as mock_settings,
         patch("src.shell.clients.EncryptionService") as mock_encryption,
         patch("src.shell.clients.SpotifyOAuth") as mock_auth,
         patch("src.shell.clients.spotipy.Spotify") as mock_spotify,
     ):
-        # Mock settings
-        mock_settings_instance = MagicMock()
-        mock_settings_instance.spotify_refresh_token = "test_token"
-        mock_settings_instance.spotify_playlist_id = (
-            "playlist_id"  # Use the actual ID from the test environment
-        )
-        mock_settings_instance.encryption_key = "test_key"
-        mock_settings_instance.spotipy_client_id = "test_client_id"
-        mock_settings_instance.spotipy_client_secret = "test_client_secret"
-        mock_settings_instance.spotipy_redirect_uri = "test_redirect_uri"
-        mock_settings.return_value = mock_settings_instance
-
         # Mock encryption
         mock_encryption.return_value.decrypt.return_value = "decrypted_token"
 
